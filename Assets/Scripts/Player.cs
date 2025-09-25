@@ -1,8 +1,8 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-
-public class Player : MonoBehaviour
+using UnityEngine.InputSystem;
+public class Player : MonoBehaviour, IMovable
 {
     public GameObject laserPrefab;
 
@@ -11,39 +11,67 @@ public class Player : MonoBehaviour
     private float verticalScreenLimit = 6f;
     private bool canShoot = true;
 
-    // Start is called before the first frame update
-    void Start()
+    private PlayerMovement controls;    
+    private Vector2 moveInput;
+
+    [SerializeField] private float worldXLimit = 20f;
+    [SerializeField] private float worldYLimit = 12f;
+
+    void Awake()
     {
-        
+        controls = new PlayerMovement();
     }
 
-    // Update is called once per frame
+    void OnEnable()
+    {
+        controls.Enable();
+
+        // movement input
+        controls.Gameplay.Move.performed += ctx => moveInput = ctx.ReadValue<Vector2>();
+        controls.Gameplay.Move.canceled += ctx => moveInput = Vector2.zero;
+
+        // shooting input
+        controls.Gameplay.Shoot.performed += OnShoot;
+    }
+
+    void OnDisable()
+    {
+        controls.Gameplay.Move.performed -= ctx => moveInput = ctx.ReadValue<Vector2>();
+        controls.Gameplay.Move.canceled -= ctx => moveInput = Vector2.zero;
+        controls.Gameplay.Shoot.performed -= OnShoot;
+
+        controls.Disable();
+    }
+
     void Update()
     {
         Movement();
-        Shooting();
     }
 
-    void Movement()
+    public void Movement()
     {
-        transform.Translate(new Vector3(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical"), 0) * Time.deltaTime * speed);
-        if (transform.position.x > horizontalScreenLimit || transform.position.x <= -horizontalScreenLimit)
-        {
-            transform.position = new Vector3(transform.position.x * -1f, transform.position.y, 0);
-        }
-        if (transform.position.y > verticalScreenLimit || transform.position.y <= -verticalScreenLimit)
-        {
-            transform.position = new Vector3(transform.position.x, transform.position.y * -1, 0);
-        }
+        transform.Translate(new Vector3(moveInput.x, moveInput.y, 0) * Time.deltaTime * speed);
+
+        if (transform.position.x > worldXLimit)
+            transform.position = new Vector3(-worldXLimit, transform.position.y, 0);
+
+        if (transform.position.x < -worldXLimit)
+            transform.position = new Vector3(worldXLimit, transform.position.y, 0);
+
+        if (transform.position.y > worldYLimit)
+            transform.position = new Vector3(transform.position.x, -worldYLimit, 0);
+
+        if (transform.position.y < -worldYLimit)
+            transform.position = new Vector3(transform.position.x, worldYLimit, 0);
     }
 
-    void Shooting()
+    private void OnShoot(InputAction.CallbackContext context)
     {
-        if (Input.GetKeyDown(KeyCode.Space) && canShoot)
+        if (canShoot)
         {
             Instantiate(laserPrefab, transform.position + new Vector3(0, 1, 0), Quaternion.identity);
             canShoot = false;
-            StartCoroutine("Cooldown");
+            StartCoroutine(Cooldown());
         }
     }
 

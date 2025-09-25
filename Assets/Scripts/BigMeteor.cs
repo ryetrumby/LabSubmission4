@@ -2,43 +2,64 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class BigMeteor : MonoBehaviour
+public class BigMeteor : Meteor, ICollisionHandler
 {
     private int hitCount = 0;
+    private CameraShake camerashake;
 
-    // Start is called before the first frame update
-    void Start()
+    protected override void Start()
     {
+        // Call the parent's Start method to initialize rb and other components
+        base.Start();
         
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        transform.Translate(Vector3.down * Time.deltaTime * 0.5f);
-
-        if (transform.position.y < -11f)
+        // Find the CameraShake component in the scene automatically
+        GameObject camObj = GameObject.FindGameObjectWithTag("VirCam");
+        if (camObj != null)
         {
-            Destroy(this.gameObject);
+            camerashake = camObj.GetComponent<CameraShake>();
         }
 
-        if (hitCount >= 5)
+        if (camerashake == null)
         {
-            Destroy(this.gameObject);
+            Debug.LogError("No CameraShake component found on object tagged 'VirCam'!");
+        }
+    }
+
+    // Handles collision of big meteor
+    public void HandleCollision(Collider2D whatIHit)
+    {
+        if (whatIHit.CompareTag("Player"))
+        {
+            GameObject.Find("GameManager").GetComponent<GameManager>().gameOver = true;
+            Destroy(whatIHit.gameObject);
+        }
+        else if (whatIHit.CompareTag("Laser"))
+        {
+            Debug.Log("BigMeteor: Laser collision detected!");
+            
+            if (camerashake != null)
+            {
+                camerashake.Shake(5f, 2f);
+                Debug.Log("BigMeteor: Camera shake triggered!");
+            }
+            else
+            {
+                Debug.LogError("BigMeteor: CameraShake component is null!");
+            }
+
+            hitCount++;
+            Destroy(whatIHit.gameObject);
+
+            if (hitCount >= 5) // Big meteor requires 5 hits to destroy
+            {
+                Debug.Log("BigMeteor: Destroyed after 5 hits!");
+                Destroy(this.gameObject);
+            }
         }
     }
 
     private void OnTriggerEnter2D(Collider2D whatIHit)
     {
-        if (whatIHit.tag == "Player")
-        {
-            GameObject.Find("GameManager").GetComponent<GameManager>().gameOver = true;
-            Destroy(whatIHit.gameObject);
-        }
-        else if (whatIHit.tag == "Laser")
-        {
-            hitCount++;
-            Destroy(whatIHit.gameObject);
-        }
+        HandleCollision(whatIHit);
     }
 }
